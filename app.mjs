@@ -48,7 +48,7 @@ app.get("/rank/:region/:id/:tag", async (req, res) => {
       const rank = data.currenttierpatched;
       const rr = data.ranking_in_tier;
       const lastMmrChange = data.mmr_change_to_last_game;
-      responseMessage = `${rank} - ${rr}RR`;
+      responseMessage = `${rank} : ${rr}RR`;
     } else if (mmrData.status === 429) {
       responseMessage = `Error: Too Many Requests for Riot API!! Code: ${mmrData.status}`;
     } else {
