@@ -1,12 +1,11 @@
-import fetch from "node-fetch";
-import express from "express";
-import dotenv from "dotenv";
-import axios from "axios";
-import schedule from "node-schedule";
-import fs from "fs-extra";
-import youtubeChat from "youtube-chat";
-import { parse } from "querystring";
-import path from "path";
+const express = require("express");
+const dotenv = require("dotenv");
+const axios = require("axios");
+const schedule = require("node-schedule");
+const fs = require("fs-extra");
+const youtubeChat = require("youtube-chat");
+const { parse } = require("querystring");
+const path = require("path");
 
 dotenv.config();
 
@@ -67,6 +66,8 @@ app.get("/youtube/uptime", async (req, res) => {
   }
 
   try {
+    const fetch = (await import("node-fetch")).default;
+
     const channelUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=${channelId}&type=video&eventType=live&key=${YOUTUBE_API_KEY}`;
     const channelResponse = await fetch(channelUrl);
 
@@ -120,6 +121,8 @@ app.get("/youtube/uptime", async (req, res) => {
 
 // Function to get YouTube channel statistics
 const getChannelStats = async (channel, useID) => {
+  const fetch = (await import("node-fetch")).default;
+
   let url;
 
   if (useID === "true") {
@@ -139,6 +142,8 @@ const getChannelStats = async (channel, useID) => {
 
 // Function to get YouTube channel data
 const getChannelData = async (channel, useID) => {
+  const fetch = (await import("node-fetch")).default;
+
   let url;
 
   if (useID === "true") {
@@ -168,12 +173,14 @@ app.get("/youtube/subscribers", async (req, res) => {
 
   try {
     const stats = await getChannelStats(channel, useID);
-    res.send(`Subscriber Count : ${stats}`);
+    res.send(`Subscriber Count: ${stats}`);
   } catch (error) {
     console.error("Error fetching YouTube channel statistics:", error.message);
     res.status(500).send(`Error: ${error.message}`);
   }
 });
+
+// Endpoint to get YouTube channel data
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
