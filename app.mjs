@@ -20,22 +20,20 @@ if (!YOUTUBE_API_KEY) {
   process.exit(1);
 }
 
-console.log("Starting ValRankPilot");
+console.log("Starting ValPilot");
 
 console.log("api key: " + process.env.api);
 
 app.get("/", (req, res) => {
-  res.send("Welcome to the ValRankPilot");
+  res.send("Welcome to the ValPilot");
 });
 
 app.get("/health", (req, res) => {
   res.send("ValPilot is Working totally fine!");
 });
 
-app.get("/rank/:region/:id/:tag", async (req, res) => {
+app.get("/valorant/rank/:region/:id/:tag", async (req, res) => {
   const { region, id, tag } = req.params;
-  let streamer = null;
-  let url = null;
 
   const mmrUrl = `https://api.henrikdev.xyz/valorant/v1/mmr/${region}/${id}/${tag}?api_key=${apikey}`;
 
@@ -61,7 +59,7 @@ app.get("/rank/:region/:id/:tag", async (req, res) => {
   }
 });
 
-app.get("/uptime", async (req, res) => {
+app.get("/youtube/uptime", async (req, res) => {
   const { channelId } = req.query;
 
   if (!channelId) {
@@ -109,13 +107,70 @@ app.get("/uptime", async (req, res) => {
 
         res.send(`Stream is running for ${hours} hrs ${minutes} min`);
       } else {
-        res.send("Not live");
+        res.send("Streamer is not live");
       }
     } else {
-      res.send("Not live");
+      res.send("Streamer is not live");
     }
   } catch (error) {
     console.error("Error fetching YouTube data:", error.message);
+    res.status(500).send(`Error: ${error.message}`);
+  }
+});
+
+// Function to get YouTube channel statistics
+const getChannelStats = async (channel, useID) => {
+  let url;
+
+  if (useID === "true") {
+    url = `https://www.googleapis.com/youtube/v3/channels?part=statistics&id=${channel}&key=${YOUTUBE_API_KEY}`;
+  } else {
+    const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${channel}&type=channel&key=${YOUTUBE_API_KEY}`;
+    const searchResponse = await fetch(searchUrl);
+    const searchData = await searchResponse.json();
+    const channelId = searchData.items[0].id.channelId;
+    url = `https://www.googleapis.com/youtube/v3/channels?part=statistics&id=${channelId}&key=${YOUTUBE_API_KEY}`;
+  }
+
+  const response = await fetch(url);
+  const data = await response.json();
+  return data.items[0].statistics.subscriberCount;
+};
+
+// Function to get YouTube channel data
+const getChannelData = async (channel, useID) => {
+  let url;
+
+  if (useID === "true") {
+    url = `https://www.googleapis.com/youtube/v3/channels?part=snippet&id=${channel}&key=${YOUTUBE_API_KEY}`;
+  } else {
+    const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${channel}&type=channel&key=${YOUTUBE_API_KEY}`;
+    const searchResponse = await fetch(searchUrl);
+    const searchData = await searchResponse.json();
+    const channelId = searchData.items[0].id.channelId;
+    url = `https://www.googleapis.com/youtube/v3/channels?part=snippet&id=${channelId}&key=${YOUTUBE_API_KEY}`;
+  }
+
+  const response = await fetch(url);
+  const data = await response.json();
+  const channelName = data.items[0].snippet.title;
+  const profileData = data.items[0].snippet.thumbnails.high.url;
+  return { channelName, profileData };
+};
+
+// Endpoint to get YouTube channel statistics
+app.get("/youtube/subscribers", async (req, res) => {
+  const { channel, useID } = req.query;
+
+  if (!channel || !useID) {
+    return res.status(400).send("Missing channel or useID query parameter");
+  }
+
+  try {
+    const stats = await getChannelStats(channel, useID);
+    res.send(`Subscriber Count : ${stats}`);
+  } catch (error) {
+    console.error("Error fetching YouTube channel statistics:", error.message);
     res.status(500).send(`Error: ${error.message}`);
   }
 });
