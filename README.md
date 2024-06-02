@@ -1,4 +1,5 @@
 # ValPilot
+<hr>
 
 ## YouTube
 
@@ -21,7 +22,7 @@
 ```
 /youtube/subscribers?channel=<channelname>&useID=false
 ```
-<br>
+<hr>
 
 ## Rank
 
@@ -34,6 +35,13 @@
 <br>
 <em>will update the other commands soon (after developing them) </em>
 
+<hr>
+
+## API Credits
+
+This project utilizes the [HenrikDev API](https://app.swaggerhub.com/apis-docs/Henrik-3/HenrikDev-API/3.0.0#/). Please refer to their documentation for more information.
+
+<hr>
 
 ## Contact Details
 
