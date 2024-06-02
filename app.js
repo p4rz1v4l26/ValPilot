@@ -1,187 +1,100 @@
 const express = require("express");
 const dotenv = require("dotenv");
-const axios = require("axios");
-const schedule = require("node-schedule");
-const fs = require("fs-extra");
-const youtubeChat = require("youtube-chat");
-const { parse } = require("querystring");
-const path = require("path");
+const valdata = require("./valdata");
+const ytdata = require("./ytdata");
 
 dotenv.config();
 
-const apikey = process.env.api;
-const YOUTUBE_API_KEY = process.env.YOUTUBE_API_KEY;
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-if (!YOUTUBE_API_KEY) {
-  console.error("YOUTUBE_API_KEY is not set");
-  process.exit(1);
-}
-
 console.log("Starting ValPilot");
 
-console.log("api key: " + process.env.api);
-
 app.get("/", (req, res) => {
-  res.send("Welcome to the ValPilot");
+    res.send("Welcome to the ValPilot");
 });
 
 app.get("/health", (req, res) => {
-  res.send("ValPilot is Working totally fine!");
+    res.send("ValPilot is working totally fine!");
 });
 
-app.get("/valorant/rank/:region/:id/:tag", async (req, res) => {
-  const { region, id, tag } = req.params;
+app.get("/val/rank/:region/:id/:tag", async (req, res) => {
+    const { region, id, tag } = req.params;
 
-  const mmrUrl = `https://api.henrikdev.xyz/valorant/v1/mmr/${region}/${id}/${tag}?api_key=${apikey}`;
+    try {
+        const rank = await valdata.getRank(region, id, tag);
+        res.send(rank);
+    } catch (error) {
+        res.status(500).send(`Error: ${error.message}`);
+    }
+});
 
-  try {
-    const mmrData = await axios.get(mmrUrl);
-    let responseMessage = " ";
+app.get("/val/hs/:region/:id/:tag", async (req, res) => {
+    const { region, id, tag } = req.params;
+    const fs = req.query.fs;
 
-    if (mmrData.status === 200) {
-      const data = mmrData.data.data;
-      const rank = data.currenttierpatched;
-      const rr = data.ranking_in_tier;
-      const lastMmrChange = data.mmr_change_to_last_game;
-      responseMessage = `${rank} : ${rr}RR`;
-    } else if (mmrData.status === 429) {
-      responseMessage = `Error: Too Many Requests for Riot API!! Code: ${mmrData.status}`;
-    } else {
-      responseMessage = `Check your ID and Try Again!! Code: ${mmrData.status}`;
+    try {
+        const hs = await valdata.calcHs(region, id, tag);
+        if (fs === "json") {
+            res.json({ hs });
+        } else {
+            res.send(hs.toString());
+        }
+    } catch (error) {
+        res.status(500).send(error.message);
+    }
+});
+
+app.get("/val/mmr/:region/:id/:tag", async (req, res) => {
+    const { region, id, tag } = req.params;
+    const fs = req.query.fs;
+
+    try {
+        const mmr = await valdata.getMMR(region, id, tag);
+        const responseMessage = `Current MMR Rating of ${id}#${tag} is : ${mmr}`;
+
+        if (fs === "json") {
+            res.json({ MMR: mmr });
+        } else {
+            res.send(responseMessage);
+        }
+    } catch (error) {
+        res.status(500).send(error.message);
+    }
+});
+
+app.get("/yt/uptime", async (req, res) => {
+    const { channelId } = req.query;
+
+    if (!channelId) {
+        return res.status(400).send("Missing channelId query parameter");
     }
 
-    res.send(responseMessage);
-  } catch (error) {
-    res.send(`Error: ${error.message}`);
-  }
+    try {
+        const uptime = await ytdata.getUptime(channelId);
+        res.send(uptime);
+    } catch (error) {
+        console.error("Error fetching YouTube data:", error.message);
+        res.status(500).send(`Error: ${error.message}`);
+    }
 });
 
-app.get("/youtube/uptime", async (req, res) => {
-  const { channelId } = req.query;
+app.get("/yt/subscribers", async (req, res) => {
+    const { channel, useID } = req.query;
 
-  if (!channelId) {
-    return res.status(400).send("Missing channelId query parameter");
-  }
-
-  try {
-    const fetch = (await import("node-fetch")).default;
-
-    const channelUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=${channelId}&type=video&eventType=live&key=${YOUTUBE_API_KEY}`;
-    const channelResponse = await fetch(channelUrl);
-
-    if (!channelResponse.ok) {
-      const errorData = await channelResponse.json();
-      console.error("YouTube API error:", errorData);
-      throw new Error(`YouTube API error: ${channelResponse.statusText}`);
+    if (!channel || !useID) {
+        return res.status(400).send("Missing channel or useID query parameter");
     }
 
-    const channelData = await channelResponse.json();
-
-    if (channelData.items && channelData.items.length > 0) {
-      const liveVideoId = channelData.items[0].id.videoId;
-      const url = `https://www.googleapis.com/youtube/v3/videos?part=liveStreamingDetails&id=${liveVideoId}&key=${YOUTUBE_API_KEY}`;
-      const response = await fetch(url);
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error("YouTube API error:", errorData);
-        throw new Error(`YouTube API error: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      console.log(data);
-      if (
-        data.items.length > 0 &&
-        data.items[0].liveStreamingDetails &&
-        data.items[0].liveStreamingDetails.actualStartTime
-      ) {
-        const startTime = new Date(
-          data.items[0].liveStreamingDetails.actualStartTime
-        );
-        const now = new Date();
-        const uptime = now - startTime;
-
-        const hours = Math.floor(uptime / 3600000);
-        const minutes = Math.floor((uptime % 3600000) / 60000);
-
-        res.send(`Stream is running for ${hours} hrs ${minutes} min`);
-      } else {
-        res.send("Streamer is not live");
-      }
-    } else {
-      res.send("Streamer is not live");
+    try {
+        const stats = await ytdata.getChannelStats(channel, useID);
+        res.send(`Subscriber Count: ${stats}`);
+    } catch (error) {
+        console.error("Error fetching YouTube channel statistics:", error.message);
+        res.status(500).send(`Error: ${error.message}`);
     }
-  } catch (error) {
-    console.error("Error fetching YouTube data:", error.message);
-    res.status(500).send(`Error: ${error.message}`);
-  }
 });
-
-// Function to get YouTube channel statistics
-const getChannelStats = async (channel, useID) => {
-  const fetch = (await import("node-fetch")).default;
-
-  let url;
-
-  if (useID === "true") {
-    url = `https://www.googleapis.com/youtube/v3/channels?part=statistics&id=${channel}&key=${YOUTUBE_API_KEY}`;
-  } else {
-    const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${channel}&type=channel&key=${YOUTUBE_API_KEY}`;
-    const searchResponse = await fetch(searchUrl);
-    const searchData = await searchResponse.json();
-    const channelId = searchData.items[0].id.channelId;
-    url = `https://www.googleapis.com/youtube/v3/channels?part=statistics&id=${channelId}&key=${YOUTUBE_API_KEY}`;
-  }
-
-  const response = await fetch(url);
-  const data = await response.json();
-  return data.items[0].statistics.subscriberCount;
-};
-
-// Function to get YouTube channel data
-const getChannelData = async (channel, useID) => {
-  const fetch = (await import("node-fetch")).default;
-
-  let url;
-
-  if (useID === "true") {
-    url = `https://www.googleapis.com/youtube/v3/channels?part=snippet&id=${channel}&key=${YOUTUBE_API_KEY}`;
-  } else {
-    const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${channel}&type=channel&key=${YOUTUBE_API_KEY}`;
-    const searchResponse = await fetch(searchUrl);
-    const searchData = await searchResponse.json();
-    const channelId = searchData.items[0].id.channelId;
-    url = `https://www.googleapis.com/youtube/v3/channels?part=snippet&id=${channelId}&key=${YOUTUBE_API_KEY}`;
-  }
-
-  const response = await fetch(url);
-  const data = await response.json();
-  const channelName = data.items[0].snippet.title;
-  const profileData = data.items[0].snippet.thumbnails.high.url;
-  return { channelName, profileData };
-};
-
-// Endpoint to get YouTube channel statistics
-app.get("/youtube/subscribers", async (req, res) => {
-  const { channel, useID } = req.query;
-
-  if (!channel || !useID) {
-    return res.status(400).send("Missing channel or useID query parameter");
-  }
-
-  try {
-    const stats = await getChannelStats(channel, useID);
-    res.send(`Subscriber Count: ${stats}`);
-  } catch (error) {
-    console.error("Error fetching YouTube channel statistics:", error.message);
-    res.status(500).send(`Error: ${error.message}`);
-  }
-});
-
-// Endpoint to get YouTube channel data
 
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+    console.log(`Server is running on port ${PORT}`);
 });
