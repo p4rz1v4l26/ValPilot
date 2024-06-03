@@ -17,9 +17,9 @@ async function calcHs(region, id, tag) {
     const totalShots = head + body + leg;
     const headshotPercentage = totalShots > 0 ? (head / totalShots) * 100 : 0;
 
-    return `Overall HS Rate of ${id}#${tag} is ${headshotPercentage.toFixed(
+    return ` HS Rate of ${id}#${tag} was ${headshotPercentage.toFixed(
       1
-    )}%`;
+    )}% in last match`;
   } catch (error) {
     console.error(
       "Error in calcHs:",
