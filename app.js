@@ -88,7 +88,7 @@ app.get("/yt/subscribers", async (req, res) => {
 
     try {
         const stats = await ytdata.getChannelStats(channel, useID);
-        res.send(`Subscriber Count: ${stats}`);
+        res.send(`We are currently on : ${stats} Subs `);
     } catch (error) {
         console.error("Error fetching YouTube channel statistics:", error.message);
         res.status(500).send(`Error: ${error.message}`);
